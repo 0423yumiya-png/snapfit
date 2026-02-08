@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SnapFit - SNSアイコン＆画像リサイザー</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --accent: #ff6b35;
+    --accent-glow: rgba(255, 107, 53, 0.3);
+    --accent2: #00d4aa;
+    --accent2-glow: rgba(0, 212, 170, 0.2);
+    --danger: #ff4466;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans JP', 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(255, 107, 53, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(0, 212, 170, 0.04) 0%, transparent 50%);
+    animation: bgShift 20s ease-in-out infinite alternate;
+    z-index: -1;
+  }
+
+  @keyframes bgShift {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(-5%, -3%) rotate(3deg); }
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+    animation: fadeInDown 0.8s ease;
+  }
+
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo {
+    font-family: 'Outfit', sans-serif;
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, var(--accent) 0%, #ff9a6c 50%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+
+  .tagline {
+    color: var(--text-dim);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Drop Zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    padding: 56px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    animation: fadeIn 0.8s ease 0.2s both;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, var(--accent-glow), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .drop-zone:hover::before, .drop-zone.dragover::before {
+    opacity: 1;
+  }
+
+  .drop-icon { font-size: 52px; margin-bottom: 14px; display: block; }
+  .drop-text { font-size: 17px; font-weight: 500; margin-bottom: 8px; position: relative; }
+  .drop-sub { font-size: 13px; color: var(--text-dim); position: relative; }
+  .file-input { display: none; }
+
+  /* Mode Toggle */
+  .mode-toggle {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 24px;
+    animation: fadeIn 0.5s ease;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  .mode-btn.active {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 4px 15px var(--accent-glow);
+  }
+
+  /* Main Layout */
+  .main-content {
+    display: none;
+    gap: 28px;
+    margin-top: 12px;
+    animation: fadeIn 0.5s ease;
+  }
+
+  .main-content.active {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 768px) {
+    .main-content.active { grid-template-columns: 1fr; }
+  }
+
+  /* Panel */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+
+  .panel-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* Platform Selection */
+  .platform-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .platform-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  .platform-chip:hover {
+    border-color: var(--accent);
+  }
+
+  .platform-chip.selected {
+    border-color: var(--accent);
+    background: rgba(255, 107, 53, 0.12);
+    box-shadow: 0 0 15px var(--accent-glow);
+  }
+
+  .platform-chip .chip-icon { font-size: 16px; }
+
+  /* Size List */
+  .size-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 18px;
+    max-height: 210px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .size-list::-webkit-scrollbar { width: 4px; }
+  .size-list::-webkit-scrollbar-track { background: transparent; }
+  .size-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .size-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  .size-item:hover {
+    border-color: var(--accent2);
+    background: rgba(0, 212, 170, 0.05);
+  }
+
+  .size-item.selected {
+    border-color: var(--accent2);
+    background: rgba(0, 212, 170, 0.1);
+  }
+
+  .size-item .size-name {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .size-item .size-name .circle-badge {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent2);
+    opacity: 0.6;
+  }
+
+  .size-item .size-dims {
+    color: var(--text-dim);
+    font-size: 12px;
+    font-family: 'Outfit', monospace;
+  }
+
+  /* Format Row */
+  .format-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .format-btn {
+    flex: 1;
+    padding: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Outfit', sans-serif;
+    text-transform: uppercase;
+  }
+
+  .format-btn.selected {
+    border-color: var(--accent);
+    color: var(--text);
+    background: rgba(255, 107, 53, 0.1);
+  }
+
+  /* Buttons */
+  .download-section { display: flex; flex-direction: column; gap: 8px; }
+
+  .download-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent) 0%, #ff8c5a 100%);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+    letter-spacing: 0.5px;
+  }
+
+  .download-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px var(--accent-glow); }
+  .download-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .download-all-btn {
+    width: 100%;
+    padding: 11px;
+    background: transparent;
+    border: 1px solid var(--accent2);
+    border-radius: 10px;
+    color: var(--accent2);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  .download-all-btn:hover { background: rgba(0, 212, 170, 0.1); }
+  .download-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Preview Area */
+  .preview-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 420px;
+    gap: 16px;
+  }
+
+  .preview-label {
+    background: var(--surface2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* Crop Container */
+  .crop-container {
+    position: relative;
+    display: inline-block;
+    cursor: grab;
+    user-select: none;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .crop-container:active { cursor: grabbing; }
+
+  .crop-container img {
+    display: block;
+    max-width: 100%;
+    max-height: 360px;
+    pointer-events: none;
+  }
+
+  .crop-frame {
+    position: absolute;
+    border: 2.5px solid var(--accent);
+    background: rgba(255, 107, 53, 0.06);
+    pointer-events: none;
+    transition: border-radius 0.3s;
+    box-shadow: 0 0 0 3000px rgba(0, 0, 0, 0.5);
+  }
+
+  .crop-frame.circle {
+    border-radius: 50%;
+  }
+
+  /* Icon Preview Circle */
+  .icon-preview-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .icon-preview-label {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .icon-preview-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+  }
+
+  .icon-preview-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .icon-preview-circle {
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .icon-preview-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .icon-preview-size {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'Outfit', monospace;
+  }
+
+  .preview-info {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .preview-info span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* Drag hint */
+  .drag-hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 0.7;
+  }
+
+  /* Reset */
+  .reset-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+    display: none;
+    z-index: 10;
+  }
+
+  .reset-btn.active { display: block; }
+  .reset-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent2);
+    color: var(--bg);
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Zoom control */
+  .zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 260px;
+  }
+
+  .zoom-control input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .zoom-control input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+
+  .zoom-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 36px;
+    text-align: center;
+    font-family: 'Outfit', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">SnapFit</div>
+    <p class="tagline">SNSアイコン＆画像を各プラットフォームに最適サイズで変換</p>
+  </header>
+
+  <div class="drop-zone" id="dropZone">
+    <span class="drop-icon">📸</span>
+    <p class="drop-text">画像をドラッグ＆ドロップ</p>
+    <p class="drop-sub">またはクリックして選択 ・ JPG / PNG / WebP対応</p>
+    <input type="file" class="file-input" id="fileInput" accept="image/*">
+  </div>
+
+  <div id="editorSection" style="display:none;">
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="icon">🟢 アイコン</button>
+      <button class="mode-btn" data-mode="post">🖼️ 投稿・カバー</button>
+    </div>
+
+    <div class="main-content active" id="mainContent">
+      <div class="panel">
+        <div class="panel-title">プラットフォーム</div>
+        <div class="platform-chips" id="platforms"></div>
+
+        <div class="panel-title">サイズ</div>
+        <div class="size-list" id="sizeList"></div>
+
+        <div class="panel-title" style="margin-top:14px;">形式</div>
+        <div class="format-row">
+          <button class="format-btn selected" data-format="jpeg">JPG</button>
+          <button class="format-btn" data-format="png">PNG</button>
+          <button class="format-btn" data-format="webp">WebP</button>
+        </div>
+
+        <div class="download-section">
+          <button class="download-btn" id="downloadBtn" disabled>ダウンロード</button>
+          <button class="download-all-btn" id="downloadAllBtn" disabled>全サイズ一括ダウンロード</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">プレビュー</div>
+        <div class="preview-area" id="previewArea">
+          <div class="preview-label" id="originalLabel"></div>
+
+          <div class="crop-container" id="cropContainer">
+            <img id="previewImg" src="" alt="">
+            <div class="crop-frame" id="cropFrame" style="display:none;"></div>
+          </div>
+
+          <div class="drag-hint">↕️ ドラッグで切り抜き位置を調整</div>
+
+          <div class="zoom-control">
+            <span class="zoom-label" id="zoomLabel">100%</span>
+            <input type="range" id="zoomSlider" min="100" max="300" value="100" step="5">
+          </div>
+
+          <div class="icon-preview-section" id="iconPreviewSection" style="display:none;">
+            <div class="icon-preview-label">アイコンプレビュー</div>
+            <div class="icon-preview-row" id="iconPreviewRow"></div>
+          </div>
+
+          <div class="preview-info" id="previewInfo"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="reset-btn" id="resetBtn">🔄 別の画像を選択</button>
+<div class="toast" id="toast"></div>
+<canvas id="resizeCanvas" style="display:none;"></canvas>
+
+<script>
+const DATA = {
+  icon: {
+    line:      { name: 'LINE',      icon: '💬', sizes: [{ label: 'プロフィール', w: 480, h: 480 }] },
+    instagram: { name: 'Instagram', icon: '📷', sizes: [{ label: 'プロフィール', w: 320, h: 320 }] },
+    x:         { name: 'X (Twitter)', icon: '𝕏', sizes: [{ label: 'プロフィール', w: 400, h: 400 }] },
+    tiktok:    { name: 'TikTok',    icon: '🎵', sizes: [{ label: 'プロフィール', w: 200, h: 200 }] },
+    youtube:   { name: 'YouTube',   icon: '▶️', sizes: [{ label: 'チャンネルアイコン', w: 800, h: 800 }] },
+    facebook:  { name: 'Facebook',  icon: '👤', sizes: [{ label: 'プロフィール', w: 170, h: 170 }] },
+  },
+  post: {
+    x:         { name: 'X (Twitter)', icon: '𝕏', sizes: [
+                  { label: 'ポスト画像', w: 1200, h: 675 },
+                  { label: 'ヘッダー', w: 1500, h: 500 },
+                ]},
+    instagram: { name: 'Instagram', icon: '📷', sizes: [
+                  { label: 'フィード (正方形)', w: 1080, h: 1080 },
+                  { label: 'フィード (縦長)', w: 1080, h: 1350 },
+                  { label: 'ストーリー / リール', w: 1080, h: 1920 },
+                ]},
+    youtube:   { name: 'YouTube', icon: '▶️', sizes: [
+                  { label: 'サムネイル', w: 1280, h: 720 },
+                  { label: 'チャンネルバナー', w: 2560, h: 1440 },
+                ]},
+    tiktok:    { name: 'TikTok', icon: '🎵', sizes: [
+                  { label: '動画カバー', w: 1080, h: 1920 },
+                ]},
+    facebook:  { name: 'Facebook', icon: '👤', sizes: [
+                  { label: 'フィード画像', w: 1200, h: 630 },
+                  { label: 'カバー写真', w: 820, h: 312 },
+                ]},
+    line:      { name: 'LINE', icon: '💬', sizes: [
+                  { label: 'VOOMカバー', w: 1080, h: 1080 },
+                ]},
+  }
+};
+
+let originalImage = null;
+let currentMode = 'icon';
+let selectedPlatform = 'line';
+let selectedSizeIdx = 0;
+let selectedFormat = 'jpeg';
+
+// Crop state
+let cropOffsetX = 0;
+let cropOffsetY = 0;
+let zoomLevel = 100;
+let isDragging = false;
+let dragStartX, dragStartY, dragStartOffsetX, dragStartOffsetY;
+
+const $ = id => document.getElementById(id);
+const dropZone = $('dropZone');
+const fileInput = $('fileInput');
+const editorSection = $('editorSection');
+const platformsEl = $('platforms');
+const sizeListEl = $('sizeList');
+const previewImg = $('previewImg');
+const cropFrame = $('cropFrame');
+const cropContainer = $('cropContainer');
+const downloadBtn = $('downloadBtn');
+const downloadAllBtn = $('downloadAllBtn');
+const resetBtn = $('resetBtn');
+const zoomSlider = $('zoomSlider');
+const zoomLabel = $('zoomLabel');
+const iconPreviewSection = $('iconPreviewSection');
+const iconPreviewRow = $('iconPreviewRow');
+const canvas = $('resizeCanvas');
+const ctx = canvas.getContext('2d');
+
+function currentData() { return DATA[currentMode]; }
+function currentSizes() { return currentData()[selectedPlatform]?.sizes || []; }
+function selectedSize() { return currentSizes()[selectedSizeIdx]; }
+function isIconMode() { return currentMode === 'icon'; }
+
+// Mode toggle
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    const keys = Object.keys(currentData());
+    selectedPlatform = keys[0];
+    selectedSizeIdx = 0;
+    cropOffsetX = 0; cropOffsetY = 0;
+    zoomSlider.value = 100; zoomLevel = 100;
+    render();
+  };
+});
+
+// Format
+document.querySelectorAll('.format-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedFormat = btn.dataset.format;
+  };
+});
+
+function render() {
+  renderPlatforms();
+  renderSizes();
+  updateCrop();
+  updateButtons();
+  updateIconPreview();
+  iconPreviewSection.style.display = isIconMode() && originalImage ? '' : 'none';
+}
+
+function renderPlatforms() {
+  platformsEl.innerHTML = '';
+  Object.entries(currentData()).forEach(([key, p]) => {
+    const chip = document.createElement('button');
+    chip.className = `platform-chip ${key === selectedPlatform ? 'selected' : ''}`;
+    chip.innerHTML = `<span class="chip-icon">${p.icon}</span>${p.name}`;
+    chip.onclick = () => {
+      selectedPlatform = key;
+      selectedSizeIdx = 0;
+      cropOffsetX = 0; cropOffsetY = 0;
+      render();
+    };
+    platformsEl.appendChild(chip);
+  });
+}
+
+function renderSizes() {
+  sizeListEl.innerHTML = '';
+  currentSizes().forEach((s, i) => {
+    const item = document.createElement('button');
+    item.className = `size-item ${selectedSizeIdx === i ? 'selected' : ''}`;
+    const isCircle = isIconMode();
+    item.innerHTML = `
+      <span class="size-name">${isCircle ? '<span class="circle-badge"></span>' : ''}${s.label}</span>
+      <span class="size-dims">${s.w} × ${s.h}</span>
+    `;
+    item.onclick = () => {
+      selectedSizeIdx = i;
+      cropOffsetX = 0; cropOffsetY = 0;
+      render();
+    };
+    sizeListEl.appendChild(item);
+  });
+}
+
+// Drop zone
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadImage(e.target.files[0]); });
+
+function loadImage(file) {
+  if (!file.type.startsWith('image/')) { showToast('画像ファイルを選択してください'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+      previewImg.src = e.target.result;
+      $('originalLabel').textContent = `元画像: ${img.naturalWidth} × ${img.naturalHeight}px`;
+      dropZone.style.display = 'none';
+      editorSection.style.display = '';
+      resetBtn.classList.add('active');
+      cropOffsetX = 0; cropOffsetY = 0;
+      zoomSlider.value = 100; zoomLevel = 100;
+      selectedSizeIdx = 0;
+      render();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Crop calculation
+function getCropInfo() {
+  if (!originalImage || !selectedSize()) return null;
+  const size = selectedSize();
+  const natW = originalImage.naturalWidth;
+  const natH = originalImage.naturalHeight;
+  const zoom = zoomLevel / 100;
+
+  const targetAspect = size.w / size.h;
+  let cropW, cropH;
+  if (targetAspect > natW / natH) {
+    cropW = natW / zoom;
+    cropH = cropW / targetAspect;
+  } else {
+    cropH = natH / zoom;
+    cropW = cropH * targetAspect;
+  }
+
+  // Clamp offsets
+  const maxOffX = (natW - cropW) / 2;
+  const maxOffY = (natH - cropH) / 2;
+  cropOffsetX = Math.max(-maxOffX, Math.min(maxOffX, cropOffsetX));
+  cropOffsetY = Math.max(-maxOffY, Math.min(maxOffY, cropOffsetY));
+
+  const cx = (natW - cropW) / 2 + cropOffsetX;
+  const cy = (natH - cropH) / 2 + cropOffsetY;
+
+  return { sx: cx, sy: cy, sw: cropW, sh: cropH };
+}
+
+function updateCrop() {
+  if (!originalImage || !selectedSize()) {
+    cropFrame.style.display = 'none';
+    $('previewInfo').innerHTML = '';
+    return;
+  }
+
+  const info = getCropInfo();
+  if (!info) return;
+
+  const imgEl = previewImg;
+  const dispW = imgEl.clientWidth;
+  const dispH = imgEl.clientHeight;
+  const natW = originalImage.naturalWidth;
+  const natH = originalImage.naturalHeight;
+  const scaleX = dispW / natW;
+  const scaleY = dispH / natH;
+
+  cropFrame.style.display = 'block';
+  cropFrame.style.left = (info.sx * scaleX) + 'px';
+  cropFrame.style.top = (info.sy * scaleY) + 'px';
+  cropFrame.style.width = (info.sw * scaleX) + 'px';
+  cropFrame.style.height = (info.sh * scaleY) + 'px';
+
+  cropFrame.classList.toggle('circle', isIconMode());
+
+  const size = selectedSize();
+  $('previewInfo').innerHTML = `
+    <span>📐 出力: ${size.w} × ${size.h}px</span>
+    <span>📏 比率: ${size.w === size.h ? '1:1' : (size.w / size.h).toFixed(2) + ':1'}</span>
+  `;
+
+  zoomLabel.textContent = zoomLevel + '%';
+}
+
+function updateIconPreview() {
+  if (!isIconMode() || !originalImage) {
+    iconPreviewSection.style.display = 'none';
+    return;
+  }
+  iconPreviewSection.style.display = '';
+
+  const info = getCropInfo();
+  if (!info) return;
+
+  // Generate preview at different sizes
+  const previewSizes = [64, 44, 28];
+  iconPreviewRow.innerHTML = '';
+
+  previewSizes.forEach(px => {
+    const item = document.createElement('div');
+    item.className = 'icon-preview-item';
+
+    const circle = document.createElement('div');
+    circle.className = 'icon-preview-circle';
+    circle.style.width = px + 'px';
+    circle.style.height = px + 'px';
+
+    const c = document.createElement('canvas');
+    c.width = px; c.height = px;
+    const cctx = c.getContext('2d');
+    cctx.imageSmoothingEnabled = true;
+    cctx.imageSmoothingQuality = 'high';
+    cctx.beginPath();
+    cctx.arc(px/2, px/2, px/2, 0, Math.PI * 2);
+    cctx.clip();
+    cctx.drawImage(originalImage, info.sx, info.sy, info.sw, info.sh, 0, 0, px, px);
+
+    const img = document.createElement('img');
+    img.src = c.toDataURL('image/png');
+    circle.appendChild(img);
+
+    const label = document.createElement('span');
+    label.className = 'icon-preview-size';
+    label.textContent = px + 'px';
+
+    item.appendChild(circle);
+    item.appendChild(label);
+    iconPreviewRow.appendChild(item);
+  });
+}
+
+function updateButtons() {
+  const ok = originalImage && selectedSize();
+  downloadBtn.disabled = !ok;
+  downloadAllBtn.disabled = !originalImage;
+}
+
+// Dragging
+cropContainer.addEventListener('mousedown', e => {
+  if (!originalImage) return;
+  isDragging = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  dragStartOffsetX = cropOffsetX;
+  dragStartOffsetY = cropOffsetY;
+  e.preventDefault();
+});
+
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const imgEl = previewImg;
+  const natW = originalImage.naturalWidth;
+  const dispW = imgEl.clientWidth;
+  const scale = natW / dispW;
+
+  cropOffsetX = dragStartOffsetX - (e.clientX - dragStartX) * scale;
+  cropOffsetY = dragStartOffsetY - (e.clientY - dragStartY) * scale;
+  updateCrop();
+  updateIconPreview();
+});
+
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+// Touch support
+cropContainer.addEventListener('touchstart', e => {
+  if (!originalImage) return;
+  isDragging = true;
+  const t = e.touches[0];
+  dragStartX = t.clientX;
+  dragStartY = t.clientY;
+  dragStartOffsetX = cropOffsetX;
+  dragStartOffsetY = cropOffsetY;
+  e.preventDefault();
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  const t = e.touches[0];
+  const imgEl = previewImg;
+  const natW = originalImage.naturalWidth;
+  const dispW = imgEl.clientWidth;
+  const scale = natW / dispW;
+  cropOffsetX = dragStartOffsetX - (t.clientX - dragStartX) * scale;
+  cropOffsetY = dragStartOffsetY - (t.clientY - dragStartY) * scale;
+  updateCrop();
+  updateIconPreview();
+}, { passive: false });
+
+window.addEventListener('touchend', () => { isDragging = false; });
+
+// Zoom
+zoomSlider.addEventListener('input', () => {
+  zoomLevel = parseInt(zoomSlider.value);
+  updateCrop();
+  updateIconPreview();
+});
+
+// Download
+function generateImage(targetW, targetH, format, cropInfo) {
+  canvas.width = targetW;
+  canvas.height = targetH;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(originalImage, cropInfo.sx, cropInfo.sy, cropInfo.sw, cropInfo.sh, 0, 0, targetW, targetH);
+  const mime = format === 'png' ? 'image/png' : format === 'webp' ? 'image/webp' : 'image/jpeg';
+  return canvas.toDataURL(mime, format === 'png' ? undefined : 0.92);
+}
+
+function download(dataUrl, filename) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+downloadBtn.addEventListener('click', () => {
+  const size = selectedSize();
+  const info = getCropInfo();
+  if (!size || !info) return;
+  const ext = selectedFormat === 'png' ? 'png' : selectedFormat === 'webp' ? 'webp' : 'jpg';
+  const pName = currentData()[selectedPlatform].name.replace(/[()]/g, '').replace(/\s/g, '_');
+  const dataUrl = generateImage(size.w, size.h, selectedFormat, info);
+  download(dataUrl, `snapfit_${pName}_${size.label}_${size.w}x${size.h}.${ext}`);
+  showToast('✅ ダウンロード完了！');
+});
+
+downloadAllBtn.addEventListener('click', () => {
+  const sizes = currentSizes();
+  const ext = selectedFormat === 'png' ? 'png' : selectedFormat === 'webp' ? 'webp' : 'jpg';
+  const pName = currentData()[selectedPlatform].name.replace(/[()]/g, '').replace(/\s/g, '_');
+
+  sizes.forEach((s, i) => {
+    setTimeout(() => {
+      // Recalc crop for each size
+      const origIdx = selectedSizeIdx;
+      selectedSizeIdx = i;
+      const info = getCropInfo();
+      selectedSizeIdx = origIdx;
+      if (!info) return;
+      const dataUrl = generateImage(s.w, s.h, selectedFormat, info);
+      download(dataUrl, `snapfit_${pName}_${s.label}_${s.w}x${s.h}.${ext}`);
+    }, i * 300);
+  });
+  showToast(`✅ ${sizes.length}ファイルをダウンロード中...`);
+});
+
+// Reset
+resetBtn.addEventListener('click', () => {
+  originalImage = null;
+  previewImg.src = '';
+  fileInput.value = '';
+  dropZone.style.display = '';
+  editorSection.style.display = 'none';
+  resetBtn.classList.remove('active');
+  cropFrame.style.display = 'none';
+  cropOffsetX = 0; cropOffsetY = 0;
+  zoomSlider.value = 100; zoomLevel = 100;
+});
+
+// Window resize
+window.addEventListener('resize', () => { if (originalImage) { updateCrop(); updateIconPreview(); } });
+previewImg.addEventListener('load', () => { setTimeout(() => { updateCrop(); updateIconPreview(); }, 50); });
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+render();
+</script>
+</body>
+</html>
